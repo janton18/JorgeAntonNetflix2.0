@@ -1,0 +1,158 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>My Favourite Movies</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+    <style>
+        body { --primary: #6200ee; --secondary: #29b6f6; margin: 0px;}
+        * {font-family: 'Roboto', sans-serif;}
+        button { 
+            -webkit-font-smoothing: antialiased;
+            display: inline-block;
+            text-decoration: none;
+            margin: 2px;
+            color: var(--primary);
+            background: white;
+            border: 1px solid var(--primary);
+            height: 20px;
+            font-size: 9px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: ease-in 0.2s all;
+            padding: 0 8px 0 8px;
+        }
+        div#main {padding: 10px;}
+        input {margin-bottom: 5px; margin-top: 2px; padding: 4px; font-size: 12px; }
+        h1 {background: var(--primary); color: white; font-weight: 300; text-transform: uppercase; font-size: 20px; margin: 0px; padding: 15px;}
+        h2 { margin-block-start: 0px; margin-block-end: 10px; font-size: 20px;  color: var(--primary);}
+        button:hover { background: var(--primary); color: white; }
+        div.actions { margin-top: 10px;}
+        div.movie {display: inline-block; width: auto; padding: 10px; box-shadow: 2px 2px 7px #ccc; margin: 5px;}
+        div.movie div.movie-img {width: 200px; height: auto; min-height: 200px; cursor: pointer;}
+        div.movie div.movie-img img {width: 100%; height: auto;}
+        div.movie div.title {text-align: center; overflow: hidden; text-overflow: ellipsis; width: 200px; white-space: nowrap; }
+        div.field {color: var(--primary); text-transform: uppercase; font-size: 12px;}
+    </style>
+
+    <script type="text/javascript">
+        const apiKey = '9a60697712520978c710aa4977ea6288';
+        localStorage.my_movies = localStorage.my_movies || JSON.stringify([]);
+
+        // Views
+        const indexView = (movies) => {
+            let view = movies.map((movie, i) => `
+                <div class="movie">
+                   <div class="movie-img">
+                        <img data-my-id="${i}" src="${movie.thumbnail}" onerror="this.src='files/noimage.png'"/>
+                   </div>
+                   <div class="title">
+                       ${movie.title || "<em>No title</em>"}
+                   </div>
+                   <div class="actions">
+                       <button class="show" data-my-id="${i}">Show</button>
+                       <button class="delete" data-my-id="${i}">Delete</button>
+                       <button class="edit" data-my-id="${i}">Edit</button>
+                    </div>
+                </div>
+            `).join('') + `
+                <div class="actions">
+                    <button class="new">Add</button>
+                    <button class="search">Search</button>
+                    <button class="reset">Reset</button>
+                </div>`;
+            return view;
+        };
+
+        const searchView = () => `
+            <h2>Search Movies</h2>
+            <div class="field">
+                Search Term <br>
+                <input type="text" id="search" placeholder="Enter movie title">
+            </div>
+            <div class="actions">
+                <button class="search-api">Search</button>
+                <button class="index">Back</button>
+            </div>`;
+
+        const resultsView = (results) => `
+            <h2>Search Results</h2>
+            ${results.length > 0 ? results.map((movie, i) => `
+                <div class="movie">
+                   <div class="movie-img">
+                        <img src="https://image.tmdb.org/t/p/w200${movie.poster_path}" onerror="this.src='files/noimage.png'"/>
+                   </div>
+                   <div class="title">
+                       ${movie.title || "<em>No title</em>"}
+                   </div>
+                   <div class="actions">
+                       <button class="add-from-api" data-my-id="${i}">Add</button>
+                   </div>
+                </div>`).join('') : '<p>No results found.</p>'}
+            <div class="actions">
+                <button class="index">Back</button>
+            </div>`;
+
+        // Controllers
+        const indexContr = () => {
+            let my_movies = JSON.parse(localStorage.my_movies);
+            document.getElementById('main').innerHTML = indexView(my_movies);
+        };
+
+        const searchContr = () => {
+            document.getElementById('main').innerHTML = searchView();
+        };
+
+        const searchApiContr = () => {
+            const query = document.getElementById('search').value.trim();
+            if (!query) return alert('Please enter a search term.');
+
+            fetch(`https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.results) {
+                        document.getElementById('main').innerHTML = resultsView(data.results);
+                        window.tmdbResults = data.results; // Store results for reference
+                    } else {
+                        alert('No results found.');
+                    }
+                })
+                .catch(err => console.error('Error fetching search results:', err));
+        };
+
+        const addFromApiContr = (i) => {
+            const movie = window.tmdbResults[i];
+            const my_movies = JSON.parse(localStorage.my_movies);
+
+            if (my_movies.some(m => m.title === movie.title)) {
+                return alert('This movie is already in your collection.');
+            }
+
+            my_movies.push({
+                title: movie.title,
+                director: 'Unknown',
+                thumbnail: `https://image.tmdb.org/t/p/w200${movie.poster_path}`
+            });
+
+            localStorage.my_movies = JSON.stringify(my_movies);
+            alert('Movie added to your collection!');
+            indexContr();
+        };
+
+        // Router
+        document.addEventListener('click', ev => {
+            if (ev.target.matches('.index')) indexContr();
+            else if (ev.target.matches('.search')) searchContr();
+            else if (ev.target.matches('.search-api')) searchApiContr();
+            else if (ev.target.matches('.add-from-api')) addFromApiContr(Number(ev.target.dataset.myId));
+        });
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', indexContr);
+    </script>
+</head>
+<body>
+    <h1>My Favourite Movies</h1>
+    <div id="main"></div>
+</body>
+</html>
